@@ -62,7 +62,7 @@ factor.
     26   1    7    7
     27   1    3    3
     29   2    7    7
-    30   1    6    12
+    30   1    6    6
     31   2    5    5
     32   1    4    4
     33   1    4    4
@@ -173,14 +173,21 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             return cmp(self.abelian_variety(), other.abelian_variety())
         return FiniteSubgroup.__cmp__(self, other)
 
-    def order(self):
+    def order(self, proof=True):
         """
         Return the order of the torsion subgroup of this modular abelian
         variety.
 
+        The computational of the rational torsion order of J1(p) is conjectural
+        and will only be used if proof=False.
+
         This may fail if the multiple obtained by counting points modulo
         `p` exceeds the divisor obtained from the rational cuspidal
         subgroup.
+
+        INPUT:
+
+        - ``proof`` -- a boolean (default: True)
 
         OUTPUT:
 
@@ -203,13 +210,18 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             sage: J = J1(13)
             sage: J.rational_torsion_subgroup().order()
             19
-        """
-        try:
-            return self._order
-        except AttributeError:
-            pass
 
-        O = self.possible_orders()
+        Sometimes the order can only be computed with proof=False. ::
+
+            sage: J = J1(23)
+            sage: J.rational_torsion_subgroup().order()
+            Traceback (most recent call last):
+            ...
+            RuntimeError: Unable to compute order of torsion subgroup (it is in [408991, 9406793])
+
+
+        """
+        O = self.possible_orders(proof=proof)
         if len(O) == 1:
             n = O[0]
             self._order = n
@@ -269,10 +281,21 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         else:
             raise NotImplementedError("unable to compute the rational torsion subgroup in this case (there is no known general algorithm yet)")
 
-    def possible_orders(self):
+    def possible_orders(self, proof=True):
         """
-        Return the possible orders of this torsion subgroup, computed from
-        a known divisor and multiple of the order.
+        Return the possible orders of this torsion subgroup. Outside of special
+        cases, this is done by computing a divisor and multiple of the order.
+
+        INPUT:
+
+        - ``proof`` -- a boolean (default: True)
+
+        OUTPUT:
+
+        - an array of positive integers
+
+        The computational of the rational torsion order of J1(p) is conjectural
+        and will only be used if proof=False.
 
         EXAMPLES::
 
@@ -289,18 +312,34 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             [1, 2, 4, 5, 10, 20]
         """
         try:
-            return self._possible_orders
+            if proof:
+                return self._possible_orders
+            else:
+                return self._possible_orders_proof_false
         except AttributeError:
             pass
 
-        # return the order of the cuspidal subgroup in the J0(p) case
         A = self.abelian_variety()
-        if A.is_J0() and A.level().is_prime():
-            self._order = QQ((A.level()-1)/12).numerator()
-            return [self._order]
+        N = A.level()
+        # return the order of the cuspidal subgroup in the J0(p) case
+        if A.is_J0() and N.is_prime():
+            self._possible_orders = [QQ((A.level()-1)/12).numerator()]
+            self._possible_orders_proof_false = self._possible_orders
+            return self._possible_orders
 
+        # the elliptic curve case
         if A.dimension() == 1:
-            return [A.elliptic_curve().torsion_order()]
+            self._possible_orders = [A.elliptic_curve().torsion_order()]
+            self._possible_orders_proof_false = self._possible_orders
+            return self._possible_orders
+
+        # the conjectural J1(p) case
+        if not proof and A.is_J1() and N.is_prime():
+            epsilons = [epsilon for epsilon in DirichletGroup(N)
+                        if not epsilon.is_trivial() and epsilon.is_even()]
+            bernoullis = [epsilon.bernoulli(2) for epsilon in epsilons]
+            self._possible_orders_false = [ZZ(N/(2**(N-3))*prod(bernoullis))]
+            return self._possible_orders_false
 
         u = self.multiple_of_order()
         l = self.divisor_of_order()
@@ -332,25 +371,123 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             4383
 
         """
+        try:
+            return self._divisor_of_order
+        except:
+            pass
+
         A = self.abelian_variety()
         N = A.level()
+
         if A.dimension() == 0:
-            return ZZ(1)
+            self._divisor_of_order = 1
+            return self._divisor_of_order
+
+        # return the order of the cuspidal subgroup in the J0(p) case
+        if A.is_J0() and N.is_prime():
+            self._divisor_of_order = QQ((A.level()-1)/12).numerator()
+            return self._divisor_of_order
+
+        # The elliptic curve case
+        if A.dimension() == 1:
+            self._divisor_of_order = A.elliptic_curve().torsion_order()
+            return self._divisor_of_order
 
         # The J1(p) case
         if A.is_J1() and N.is_prime():
             epsilons = [epsilon for epsilon in DirichletGroup(N)
                         if not epsilon.is_trivial() and epsilon.is_even()]
             bernoullis = [epsilon.bernoulli(2) for epsilon in epsilons]
-            return ZZ(N/(2**(N-3))*prod(bernoullis))
+            self._divisor_of_order = ZZ(N/(2**(N-3))*prod(bernoullis))
+            return self._divisor_of_order
 
+        # The Gamma0 case
         if all(is_Gamma0(G) for G in A.groups()):
-            R = A.rational_cusp_subgroup()
-            return R.order()
+            self._divisor_of_order = A.rational_cusp_subgroup().order()
+            return self._divisor_of_order
 
-        return ZZ(1)
+        # Unhandled case
+        self._divisor_of_order = ZZ(1)
+        return self._divisor_of_order
 
-    def multiple_of_order(self, maxp=None):
+    def multiple_of_order(self, maxp=None, proof=True):
+        """
+        Return a multiple of the order.
+
+        INPUT:
+
+        - ``proof`` -- a boolean (default: True)
+
+        The computational of the rational torsion order of J1(p) is conjectural
+        and will only be used if proof=False. ::
+
+        EXAMPLES::
+
+            sage: from sage_modabvar import J0, J1
+            sage: J = J1(11); J
+            Abelian variety J1(11) of dimension 1
+            sage: J.rational_torsion_subgroup().multiple_of_order()
+            5
+
+            sage: J = J0(17)
+            sage: J.rational_torsion_subgroup().order()
+            4
+
+        This is an example where proof=False leads to a better bound and better
+        performance. ::
+
+            sage: J = J1(23)
+            sage: J.rational_torsion_subgroup().multiple_of_order() # long time (2s)
+            9406793
+            sage: J.rational_torsion_subgroup().multiple_of_order(proof=False)
+            408991
+        """
+
+        try:
+            if proof:
+                return self._multiple_of_order
+            else:
+                return self._multiple_of_order_proof_false
+        except:
+            pass
+
+        A = self.abelian_variety()
+        N = A.level()
+
+        if A.dimension() == 0:
+            self._multiple_of_order = 1
+            self._multiple_of_order_proof_false = self._multiple_of_order
+            return self._multiple_of_order
+
+        # return the order of the cuspidal subgroup in the J0(p) case
+        if A.is_J0() and N.is_prime():
+            self._multiple_of_order = QQ((A.level()-1)/12).numerator()
+            self._multiple_of_order_proof_false = self._multiple_of_order
+            return self._multiple_of_order
+
+        # The elliptic curve case
+        if A.dimension() == 1:
+            self._multiple_of_order = A.elliptic_curve().torsion_order()
+            self._multiple_of_order_proof_false = self._multiple_of_order
+            return self._multiple_of_order
+
+        # The conjectural J1(p) case
+        if not proof and A.is_J1() and N.is_prime():
+            epsilons = [epsilon for epsilon in DirichletGroup(N)
+                        if not epsilon.is_trivial() and epsilon.is_even()]
+            bernoullis = [epsilon.bernoulli(2) for epsilon in epsilons]
+            self._multiple_of_order_proof_false = ZZ(N/(2**(N-3))*prod(bernoullis))
+            return self._multiple_of_order_proof_false
+
+        # The Gamma0 and Gamma1 case
+        if all((is_Gamma0(G) or is_Gamma1(G) for G in A.groups())):
+            self._multiple_of_order = self.multiple_of_order_using_frobp()
+            return self._multiple_of_order
+
+        # Unhandled case
+        raise NotImplementedError("No implemented algorithm")
+
+    def multiple_of_order_using_frobp(self, maxp=None):
         """
         Return a multiple of the order of this torsion group.
 
@@ -375,7 +512,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             sage: from sage_modabvar import J0
             sage: J = J0(11)
             sage: G = J.rational_torsion_subgroup()
-            sage: G.multiple_of_order(11)
+            sage: G.multiple_of_order_using_frobp(11)
             5
 
         Increasing maxp may yield a tighter bound. If maxp=None, then Sage
@@ -385,13 +522,13 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             sage: J = J0(389)
             sage: G = J.rational_torsion_subgroup(); G
             Torsion subgroup of Abelian variety J0(389) of dimension 32
-            sage: G.multiple_of_order()
+            sage: G.multiple_of_order_using_frobp()
             97
-            sage: [G.multiple_of_order(p) for p in prime_range(3,11)]
+            sage: [G.multiple_of_order_using_frobp(p) for p in prime_range(3,11)]
             [92645296242160800, 7275, 291]
-            sage: [G.multiple_of_order(p) for p in prime_range(3,13)]
+            sage: [G.multiple_of_order_using_frobp(p) for p in prime_range(3,13)]
             [92645296242160800, 7275, 291, 97]
-            sage: [G.multiple_of_order(p) for p in prime_range(3,19)]
+            sage: [G.multiple_of_order_using_frobp(p) for p in prime_range(3,19)]
             [92645296242160800, 7275, 291, 97, 97, 97]
 
         We can compute the multiple of order of the torsion subgroup for Gamma0
@@ -399,17 +536,17 @@ class RationalTorsionSubgroup(FiniteSubgroup):
 
             sage: from sage_modabvar import J1
             sage: A = J0(11) * J0(33)
-            sage: A.rational_torsion_subgroup().multiple_of_order()
+            sage: A.rational_torsion_subgroup().multiple_of_order_using_frobp()
             1000
 
             sage: A = J1(23)
-            sage: A.rational_torsion_subgroup().multiple_of_order()
+            sage: A.rational_torsion_subgroup().multiple_of_order_using_frobp()
             9406793
-            sage: A.rational_torsion_subgroup().multiple_of_order(maxp=50)
+            sage: A.rational_torsion_subgroup().multiple_of_order_using_frobp(maxp=50)
             408991
 
             sage: A = J1(19) * J0(21)
-            sage: A.rational_torsion_subgroup().multiple_of_order()
+            sage: A.rational_torsion_subgroup().multiple_of_order_using_frobp()
             35064
 
         The next example illustrates calling this function with a larger
@@ -417,11 +554,11 @@ class RationalTorsionSubgroup(FiniteSubgroup):
 
             sage: from sage_modabvar import J0
             sage: T = J0(43)[1].rational_torsion_subgroup()
-            sage: T.multiple_of_order()
+            sage: T.multiple_of_order_using_frobp()
             14
-            sage: T.multiple_of_order(50)
+            sage: T.multiple_of_order_using_frobp(50)
             7
-            sage: T.multiple_of_order()
+            sage: T.multiple_of_order_using_frobp()
             7
 
         This function is not implemented for general congruence subgroups
@@ -430,25 +567,25 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             sage: from sage_modabvar import JH
             sage: A = JH(13,[2]); A
             Abelian variety J0(13) of dimension 0
-            sage: A.rational_torsion_subgroup().multiple_of_order()
+            sage: A.rational_torsion_subgroup().multiple_of_order_using_frobp()
             1
 
             sage: A = JH(15, [2]); A
             Abelian variety JH(15,[2]) of dimension 1
-            sage: A.rational_torsion_subgroup().multiple_of_order()
+            sage: A.rational_torsion_subgroup().multiple_of_order_using_frobp()
             Traceback (most recent call last):
             ...
             NotImplementedError: torsion multiple only implemented for Gamma0 and Gamma1
         """
         if maxp is None:
             try:
-                return self.__multiple_of_order
+                return self.__multiple_of_order_using_frobp
             except AttributeError:
                 pass
         A = self.abelian_variety()
         if A.dimension() == 0:
             T = ZZ(1)
-            self.__multiple_of_order = T
+            self.__multiple_of_order_using_frobp = T
             return T
         if not all((is_Gamma0(G) or is_Gamma1(G) for G in A.groups())):
             raise NotImplementedError("torsion multiple only implemented for Gamma0 and Gamma1")
@@ -514,21 +651,23 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         # will be used if this function is called
         # again with maxp equal to None (the default).
         if maxp is None:
-            # maxp is None but self.__multiple_of_order  is
+            # maxp is None but self.__multiple_of_order_using_frobp  is
             # not set, since otherwise we would have immediately
             # returned at the top of this function
-            self.__multiple_of_order = bnd
+            self.__multiple_of_order_using_frobp = bnd
         else:
             # maxp is given -- record new info we get as
             # a gcd...
             try:
-                self.__multiple_of_order = gcd(self.__multiple_of_order, bnd)
+                self.__multiple_of_order_using_frobp = \
+                        gcd(self.__multiple_of_order_using_frobp, bnd)
             except AttributeError:
-                # ... except in the case when self.__multiple_of_order
-                # was never set.  In this case, we just set
-                # it as long as the gcd stabilized for 3 in a row.
+                # ... except in the case when
+                # self.__multiple_of_order_using_frobp was never set.  In this
+                # case, we just set it as long as the gcd stabilized for 3 in a
+                # row.
                 if cnt >= 2:
-                    self.__multiple_of_order = bnd
+                    self.__multiple_of_order_using_frobp = bnd
         return bnd
 
 

@@ -179,7 +179,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         variety.
 
         The computational of the rational torsion order of J1(p) is conjectural
-        and will only be used if proof=False.
+        and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
 
         This may fail if the multiple obtained by counting points modulo
         `p` exceeds the divisor obtained from the rational cuspidal
@@ -192,6 +192,12 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         OUTPUT:
 
         The order of this torsion subgroup.
+
+        REFERENCE:
+
+        .. [CES2003] Brian Conrad, Bas Edixhoven, William Stein
+           `J_1(p)` Has Connected Fibers
+           Documenta Math.  8 (2003) 331--408
 
         EXAMPLES::
 
@@ -295,7 +301,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         - an array of positive integers
 
         The computational of the rational torsion order of J1(p) is conjectural
-        and will only be used if proof=False.
+        and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
 
         EXAMPLES::
 
@@ -419,7 +425,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         - ``proof`` -- a boolean (default: True)
 
         The computational of the rational torsion order of J1(p) is conjectural
-        and will only be used if proof=False. ::
+        and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
 
         EXAMPLES::
 

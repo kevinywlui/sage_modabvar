@@ -178,12 +178,12 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         Return the order of the torsion subgroup of this modular abelian
         variety.
 
-        The computational of the rational torsion order of J1(p) is conjectural
-        and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
-
-        This may fail if the multiple obtained by counting points modulo
-        `p` exceeds the divisor obtained from the rational cuspidal
+        This function may fail if the multiple obtained by counting points
+        modulo `p` exceeds the divisor obtained from the rational cuspidal
         subgroup.
+
+        The computation of the rational torsion order of J1(p) is conjectural
+        and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
 
         INPUT:
 
@@ -225,6 +225,8 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             ...
             RuntimeError: Unable to compute order of torsion subgroup (it is in [408991, 9406793])
 
+            sage: J.rational_torsion_subgroup().order(proof=False)
+            408991
 
         """
         O = self.possible_orders(proof=proof)
@@ -300,7 +302,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
 
         - an array of positive integers
 
-        The computational of the rational torsion order of J1(p) is conjectural
+        The computation of the rational torsion order of J1(p) is conjectural
         and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
 
         EXAMPLES::
@@ -344,8 +346,8 @@ class RationalTorsionSubgroup(FiniteSubgroup):
             epsilons = [epsilon for epsilon in DirichletGroup(N)
                         if not epsilon.is_trivial() and epsilon.is_even()]
             bernoullis = [epsilon.bernoulli(2) for epsilon in epsilons]
-            self._possible_orders_false = [ZZ(N/(2**(N-3))*prod(bernoullis))]
-            return self._possible_orders_false
+            self._possible_orders_proof_false = [ZZ(N/(2**(N-3))*prod(bernoullis))]
+            return self._possible_orders_proof_false
 
         u = self.multiple_of_order()
         l = self.divisor_of_order()
@@ -353,6 +355,8 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         assert u % l == 0
         O = [l * d for d in divisors(u//l)]
         self._possible_orders = O
+        if u == l:
+            self._possible_orders_proof_false = O
         return O
 
     def divisor_of_order(self):
@@ -386,7 +390,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         N = A.level()
 
         if A.dimension() == 0:
-            self._divisor_of_order = 1
+            self._divisor_of_order = ZZ(1)
             return self._divisor_of_order
 
         # return the order of the cuspidal subgroup in the J0(p) case
@@ -424,7 +428,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
 
         - ``proof`` -- a boolean (default: True)
 
-        The computational of the rational torsion order of J1(p) is conjectural
+        The computation of the rational torsion order of J1(p) is conjectural
         and will only be used if proof=False. See Section 6.2.3 of [CES2003]_.
 
         EXAMPLES::
@@ -461,7 +465,7 @@ class RationalTorsionSubgroup(FiniteSubgroup):
         N = A.level()
 
         if A.dimension() == 0:
-            self._multiple_of_order = 1
+            self._multiple_of_order = ZZ(1)
             self._multiple_of_order_proof_false = self._multiple_of_order
             return self._multiple_of_order
 
